@@ -208,13 +208,13 @@ class HourglassDecoder(nn.Module):
             nn.Conv2d(self.residual_channel, 1, 1, padding=0),
         )
     
-    def get_bins(self, bins_num):
-        depth_bins_vec = torch.linspace(math.log(self.min_val), math.log(self.max_val), bins_num, device='cuda')
+    def get_bins(self, bins_num, dtype=torch.float32, device=torch.device('cuda')):
+        depth_bins_vec = torch.linspace(math.log(self.min_val), math.log(self.max_val), bins_num, dtype=dtype, device=device)
         depth_bins_vec = torch.exp(depth_bins_vec)
         return depth_bins_vec
     
-    def register_depth_expectation_anchor(self, bins_num, B):
-        depth_bins_vec = self.get_bins(bins_num)
+    def register_depth_expectation_anchor(self, bins_num, B, dtype=torch.float32, device=torch.device('cuda')):
+        depth_bins_vec = self.get_bins(bins_num,dtype=dtype, device=device)
         depth_bins_vec = depth_bins_vec.unsqueeze(0).repeat(B, 1)
         self.register_buffer('depth_expectation_anchor', depth_bins_vec, persistent=False)
 
@@ -225,16 +225,16 @@ class HourglassDecoder(nn.Module):
         prob = self.depth_regressor_2(feature_map_d).softmax(dim=1)
         B = prob.shape[0]
         if "depth_expectation_anchor" not in self._buffers:
-            self.register_depth_expectation_anchor(self.num_depth_regressor_anchor, B)
+            self.register_depth_expectation_anchor(self.num_depth_regressor_anchor, B, dtype=prob.dtype, device=prob.device)
         d = compute_depth_expectation(
             prob,
             self.depth_expectation_anchor[:B, ...]
         ).unsqueeze(1)
         return d
 
-    def create_mesh_grid(self, height, width, batch, device="cuda", set_buffer=True):
-        y, x = torch.meshgrid([torch.arange(0, height, dtype=torch.float32, device=device),
-                               torch.arange(0, width, dtype=torch.float32, device=device)], indexing='ij')
+    def create_mesh_grid(self, height, width, batch, device="cuda",set_buffer=True,  dtype=torch.float32):
+        y, x = torch.meshgrid([torch.arange(0, height, dtype=dtype, device=device),
+                               torch.arange(0, width, dtype=dtype, device=device)], indexing='ij')
         meshgrid = torch.stack((x, y))
         meshgrid = meshgrid.unsqueeze(0).repeat(batch, 1, 1, 1)
         return meshgrid
@@ -258,7 +258,7 @@ class HourglassDecoder(nn.Module):
 
         B, _, H, W = depth_pred_2.shape
 
-        meshgrid = self.create_mesh_grid(H, W, B)
+        meshgrid = self.create_mesh_grid(H, W, B, dtype=depth_pred_2.dtype, device=depth_pred_2.device)
 
         depth_pred_mono = self.upsample(depth_pred_2, scale_factor=4) + 1e-1 * \
             self.conv_up_2(
