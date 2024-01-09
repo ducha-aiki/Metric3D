@@ -6,15 +6,15 @@ import sys
 CODE_SPACE=os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.append(CODE_SPACE)
 import argparse
-import mmcv
+#import mmcv
 import torch
 import torch.distributed as dist
 import torch.multiprocessing as mp
 
-try:
-    from mmcv.utils import Config, DictAction
-except:
-    from mmengine import Config, DictAction
+#try:
+#    from mmcv.utils import Config, DictAction
+#except:
+from mmengine import Config, DictAction
 from datetime import timedelta
 import random
 import numpy as np
